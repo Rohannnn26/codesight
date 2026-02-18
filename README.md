@@ -1,36 +1,145 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CodeSight
 
-## Getting Started
+CodeSight is an AI-powered pull request review platform built for GitHub repositories. It helps teams automate review workflows, surface risky changes quickly, and ship safer code with less manual overhead.
 
-First, run the development server:
+## Core Capabilities
+
+- Automated PR review workflows
+- GitHub authentication and repository access
+- Dashboard experience for review/navigation workflows
+- GitHub GraphQL integration (contributions and repository-linked data)
+- Extensible AI orchestration layer (currently Inngest-based)
+
+## Tech Stack
+
+### App & Frontend
+
+- Next.js (App Router)
+- React
+- TypeScript
+- Tailwind CSS v4
+- shadcn/ui
+- Radix primitives (`radix-ui`)
+- Lucide icons
+- `next-themes`
+
+### Backend & Data
+
+- Better Auth (GitHub OAuth)
+- Prisma ORM
+- PostgreSQL
+- `@prisma/adapter-pg` + `pg`
+
+### Integrations & Tooling
+
+- GitHub API (via `octokit`)
+- React Query (`@tanstack/react-query`)
+- Zod
+- ESLint
+
+### AI Orchestration
+
+- Current direction: Inngest-driven AI workflows
+- Planned evolution: LangChain / LangGraph for deeper orchestration control
+
+## Project Structure
+
+```text
+src/
+	app/                    # Next.js app routes and layouts
+	components/             # Shared UI and layout components
+	generated/prisma/       # Generated Prisma client output
+	lib/                    # Core auth/db/shared utilities
+	modules/
+		auth/                 # Auth-specific components, utils, actions
+		github/               # GitHub API integration logic
+prisma/
+	schema.prisma           # Database schema
+	migrations/             # Prisma migrations
+```
+
+## Environment Variables
+
+Create a `.env` file in the project root with values like:
+
+```env
+# Database
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB"
+
+# Better Auth / App URL
+NEXT_PUBLIC_BETTER_AUTH_URL="http://localhost:3000"
+
+# GitHub OAuth App
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+
+# Optional: control GitHub scopes for repo access (public/private)
+GITHUB_REPO_ACCESS="public"
+
+# Optional: app-level GitHub token for service-side operations
+GITHUB_TOKEN=""
+```
+
+## Local Development
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Push Prisma schema to your database:
+
+```bash
+npx prisma db push
+```
+
+3. Start development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+- `npm run dev` — start local dev server
+- `npm run build` — production build
+- `npm run start` — start built app
+- `npm run lint` — run linting
 
-To learn more about Next.js, take a look at the following resources:
+## Current Architecture Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Auth uses Better Auth with Prisma adapter and GitHub as social provider.
+- User GitHub access tokens are retrieved from the linked auth account record.
+- GitHub data fetching is implemented with Octokit (REST/GraphQL capable).
+- UI uses a graphite-styled dashboard + sidebar system with shadcn primitives.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Roadmap
 
-## Deploy on Vercel
+- Full automated PR review pipeline with AI-generated summaries and inline comments
+- Stronger review context (diff-aware code reasoning, file-level risk scoring)
+- LangChain/LangGraph migration for agentic and multi-step review control
+- Potential migration from direct GitHub API usage to GitHub MCP-based workflows
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Additional Future Features (Beyond PR Reviews)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Release quality gates (block deploys on unresolved high-risk findings)
+- Repository health scorecards (maintainability, test quality, security posture)
+- Engineering analytics (review latency, churn hotspots, ownership trends)
+- Team policy engine (convention checks, compliance checks, mandatory reviewers)
+- Incident learning loop (auto-suggest preventive checks from past incidents)
+- AI-assisted test generation and regression test recommendations
+- Secret/security drift detection with historical trend reporting
+- Multi-repo portfolio dashboard for org-wide visibility
+- Slack/Teams notifications and approval workflows
+- Self-hosted enterprise mode with audit logs and RBAC
+
+## License
+
+Add your preferred license here (MIT, Apache-2.0, or proprietary).
