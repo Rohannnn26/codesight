@@ -56,7 +56,7 @@ const LoginUI = () => {
           <button
             onClick={handleGithubSignIn}
             disabled={isLoading}
-            className="group relative w-full py-3 px-4 bg-zinc-100 text-zinc-900 rounded-lg font-semibold hover:bg-white active:scale-[0.985] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-out flex items-center justify-center gap-3 mb-8 shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-[1px]"
+            className="group relative w-full py-3 px-4 bg-zinc-100 text-zinc-900 rounded-lg font-semibold hover:bg-white active:scale-[0.985] disabled:opacity-50 disabled:cursor-not-allowed enabled:cursor-pointer transition-all duration-200 ease-out flex items-center justify-center gap-3 mb-8 shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-[1px]"
           >
             <span className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-gradient-to-r from-white/10 via-zinc-200/20 to-white/10" />
             <GithubIcon size={20} className="relative" />
@@ -66,23 +66,23 @@ const LoginUI = () => {
           <div className="space-y-4 text-center text-sm text-zinc-400">
             <div>
               New to CodeSight?{" "}
-              <a href="#" className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200">
+              <a href="#" className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200 cursor-pointer">
                 Sign Up
               </a>
             </div>
             <div>
-              <a href="#" className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200">
+              <a href="#" className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200 cursor-pointer">
                 Self-Hosted Services
               </a>
             </div>
           </div>
 
           <div className="mt-12 pt-8 border-t border-zinc-700/60 flex justify-center gap-4 text-xs text-zinc-500">
-            <a href="#" className="hover:text-zinc-300 transition-colors duration-200">
+            <a href="#" className="hover:text-zinc-300 transition-colors duration-200 cursor-pointer">
               Terms of Use
             </a>
             <span>and</span>
-            <a href="#" className="hover:text-zinc-300 transition-colors duration-200">
+            <a href="#" className="hover:text-zinc-300 transition-colors duration-200 cursor-pointer">
               Privacy Policy
             </a>
           </div>
