@@ -8,8 +8,50 @@ import{
 import {auth} from "@/lib/auth";
 import { headers } from "next/headers";
 import { Octokit } from "octokit";
-import prisma from "@/lib/db";
-import { error } from "better-auth/api";
+
+export async function getContributionStats() {
+    try {
+        const session = await auth.api.getSession({
+            headers: await headers(),
+        });
+
+        if (!session?.user) {
+            throw new Error("Unauthorized");
+        }
+
+        const token = await getGitHubToken();
+
+        // Get the actual GitHub username from the GitHub API
+        const octokit = new Octokit({ auth: token });
+
+        const { data: user } = await octokit.rest.users.getAuthenticated();
+        const username = user.login;
+
+        const calendar = await fetchUserContributions(token, username);
+
+        if (!calendar) {
+            return null;
+        }
+
+        const contributions = calendar.weeks.flatMap((week: any) =>
+            week.contributionDays.map((day: any) => ({
+                date: day.date,
+                count: day.contributionCount,
+                level: Math.min(4, Math.floor(day.contributionCount / 3)), // Convert to 0-4 scale
+            }))
+        )
+
+        return {
+            contributions,
+            totalContributions:calendar.totalContributions
+        }
+
+    } catch (error) {
+console.error("Error fetching contribution stats:", error);
+    return null;
+    }
+}
+
 
 export async function getDashboardStats() {
     try {
@@ -27,14 +69,13 @@ export async function getDashboardStats() {
 
         const {data: user} = await octokit.rest.users.getAuthenticated();
 
-        //TODO: Fetch more stats like repos, followers, etc.
-        const totalRepos=30; // Placeholder, replace with actual API call
+        const totalRepos = user.public_repos + (user.total_private_repos ?? 0);
 
         const calendar = await fetchUserContributions(token, user.login);
         const totalCommits= calendar?.totalContributions || 0;
 
         const {data:prs} = await octokit.rest.search.issuesAndPullRequests({
-            q:`is:pr author:${user.login}type:pr`,
+            q:`is:pr author:${user.login}`,
             per_page:1
         });
 
@@ -60,9 +101,7 @@ export async function getDashboardStats() {
             totalPRs:0,
             totalReviews:0
         }
-    }   
-        
-        throw error;
+    }
     }
 
 export async function getMonthlyActivity() {
