@@ -80,6 +80,10 @@ const AppSidebar = () => {
   }, [])
 
   const isActive = (url: string) => {
+    if (url === "/dashboard") {
+      return pathname === "/dashboard"
+    }
+
     return pathname === url || pathname.startsWith(`${url}/`)
   }
 

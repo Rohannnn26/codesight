@@ -2,6 +2,7 @@ import { Octokit } from "octokit";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { headers } from "next/headers";
+import { get } from "http";
 
 export const getGitHubToken = async () => {
     const session = await auth.api.getSession({
@@ -73,4 +74,21 @@ export async function fetchUserContributions(token: string, username: string) {
     } catch (error) {
         throw new Error("Failed to fetch GitHub contributions");
     }
+}
+
+export const getRepositories = async (page: number=1 , perPage: number=10) => {
+    const token = await getGitHubToken();
+    const octokit = new Octokit({
+        auth: token,
+    });
+
+    const { data } = await octokit.rest.repos.listForAuthenticatedUser({
+        sort: "updated",
+        direction: "desc",
+        visibility: "all",
+        per_page: perPage,
+        page: page,
+    });
+
+    return data;
 }
