@@ -19,8 +19,12 @@ export const useConnectRepository = () => {
     }) => {
       return await connectRepository(owner, repo, githubId);
     },
-    onSuccess: () => {
-      toast.success("Repository connected successfully");
+    onSuccess: (result) => {
+      if (result && "alreadyConnected" in result && result.alreadyConnected) {
+        toast.info("Repository is already connected");
+      } else {
+        toast.success("Repository connected successfully");
+      }
       queryClient.invalidateQueries({ queryKey: ["repositories"] });
     },
     onError: (error) => {
