@@ -4,6 +4,7 @@ import AppSidebar from '@/components/app-sidebar'
 import { Separator } from "@/components/ui/separator"
 import { requireAuth } from '@/modules/auth/utils/auth-utils'
 
+export const dynamic = 'force-dynamic'
 
 const DashboardLayout = async(
     { children }: { children: React.ReactNode }
