@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { GithubIcon, ArrowRight, Bot, Shield, Zap, GitBranch, ArrowLeft } from "lucide-react";
-import { signIn } from "@/lib/auth-client";
+import { motion } from "framer-motion";
+import { ArrowRight, Bot, Shield, Zap, GitBranch } from "lucide-react";
+import { useRouter } from "next/navigation";
 import CodeReviewDemo from "./code-review-demo";
 import LandingFooter from "./landing-footer";
 
@@ -35,8 +35,7 @@ const features = [
 ];
 
 export default function LandingPage() {
-  const [showLogin, setShowLogin] = useState(false);
-  const [isSigningIn, setIsSigningIn] = useState(false);
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -45,27 +44,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Lock body scroll when login overlay is open
-  useEffect(() => {
-    if (showLogin) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [showLogin]);
-
-  const handleGithubSignIn = async () => {
-    setIsSigningIn(true);
-    try {
-      await signIn.social({ provider: "github" });
-    } catch (error) {
-      console.error("Error during GitHub sign-in:", error);
-      setIsSigningIn(false);
-    }
-  };
+  const handleLogin = () => router.push("/login");
 
   const ease: [number, number, number, number] = [0.25, 0.4, 0.25, 1];
 
@@ -131,139 +110,13 @@ export default function LandingPage() {
           </div>
 
           <button
-            onClick={() => setShowLogin(true)}
+            onClick={handleLogin}
             className="px-5 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-lg transition-all duration-200 cursor-pointer hover:bg-zinc-800/50"
           >
             Login
           </button>
         </div>
       </header>
-
-      {/* ── Full-page Login Overlay ───────────────────────────── */}
-      <AnimatePresence>
-        {showLogin && (
-          <motion.div
-            initial={{ y: "-100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "-100%" }}
-            transition={{ type: "spring", stiffness: 200, damping: 30 }}
-            className="fixed inset-0 z-60 bg-linear-to-br from-zinc-950 via-zinc-900 to-neutral-900"
-          >
-            {/* Login background effects */}
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-zinc-700/10 blur-3xl animate-pulse" />
-              <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-slate-500/10 blur-3xl animate-pulse [animation-delay:1s]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.05),transparent_45%),radial-gradient(circle_at_80%_80%,rgba(255,255,255,0.04),transparent_45%)]" />
-            </div>
-
-            <div className="relative z-10 flex min-h-screen">
-              {/* Left side — branding */}
-              <motion.div
-                className="flex-1 flex flex-col justify-center px-12 py-16 max-lg:hidden"
-                initial={{ opacity: 0, x: -30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.25, duration: 0.6, ease }}
-              >
-                <div className="max-w-lg">
-                  <div className="mb-16">
-                    <div className="inline-flex items-center gap-2 text-2xl font-bold">
-                      <div className="w-8 h-8 rounded-full bg-zinc-300/80 shadow-[0_0_24px_rgba(212,212,216,0.25)]" />
-                      <span>CodeSight</span>
-                    </div>
-                  </div>
-
-                  <h1 className="text-5xl font-bold mb-6 leading-tight text-balance">
-                    Cut Code Review Time &amp; Bugs in Half.{" "}
-                    <span className="block">Instantly.</span>
-                  </h1>
-
-                  <p className="text-lg text-zinc-400 leading-relaxed">
-                    Supercharge your team to ship faster with the most advanced
-                    AI code reviews.
-                  </p>
-                </div>
-              </motion.div>
-
-              {/* Right side — login form */}
-              <motion.div
-                className="flex-1 flex flex-col justify-center items-center px-8 sm:px-12 py-16"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35, duration: 0.5, ease }}
-              >
-                {/* Back button */}
-                <div className="absolute top-5 left-5">
-                  <button
-                    onClick={() => setShowLogin(false)}
-                    className="group flex items-center gap-2 px-4 py-2 text-sm text-zinc-400 hover:text-white rounded-lg border border-zinc-700/50 hover:border-zinc-600 bg-zinc-800/30 hover:bg-zinc-800/60 backdrop-blur-sm transition-all duration-200 cursor-pointer"
-                  >
-                    <ArrowLeft
-                      size={16}
-                      className="group-hover:-translate-x-0.5 transition-transform duration-200"
-                    />
-                    Back
-                  </button>
-                </div>
-
-                <div className="w-full max-w-sm">
-                  <div className="mb-12">
-                    <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>
-                    <p className="text-zinc-400">
-                      Login using one of the following providers:
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleGithubSignIn}
-                    disabled={isSigningIn}
-                    className="group relative w-full py-3 px-4 bg-zinc-100 text-zinc-900 rounded-lg font-semibold hover:bg-white active:scale-[0.985] disabled:opacity-50 disabled:cursor-not-allowed enabled:cursor-pointer transition-all duration-200 ease-out flex items-center justify-center gap-3 mb-8 shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-px"
-                  >
-                    <span className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-linear-to-r from-white/10 via-zinc-200/20 to-white/10" />
-                    <GithubIcon size={20} className="relative" />
-                    {isSigningIn ? "Signing in..." : "GitHub"}
-                  </button>
-
-                  <div className="space-y-4 text-center text-sm text-zinc-400">
-                    <div>
-                      New to CodeSight?{" "}
-                      <a
-                        href="#"
-                        className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200 cursor-pointer"
-                      >
-                        Sign Up
-                      </a>
-                    </div>
-                    <div>
-                      <a
-                        href="#"
-                        className="text-zinc-200 hover:text-white font-semibold transition-colors duration-200 cursor-pointer"
-                      >
-                        Self-Hosted Services
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="mt-12 pt-8 border-t border-zinc-700/60 flex justify-center gap-4 text-xs text-zinc-500">
-                    <a
-                      href="#"
-                      className="hover:text-zinc-300 transition-colors duration-200 cursor-pointer"
-                    >
-                      Terms of Use
-                    </a>
-                    <span>and</span>
-                    <a
-                      href="#"
-                      className="hover:text-zinc-300 transition-colors duration-200 cursor-pointer"
-                    >
-                      Privacy Policy
-                    </a>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* ── Hero — text left, demo right ──────────────────────── */}
       <section className="relative pt-32 pb-20 px-6 z-10">
@@ -302,7 +155,7 @@ export default function LandingPage() {
 
             <motion.div variants={fadeInLeft}>
               <button
-                onClick={() => setShowLogin(true)}
+                onClick={handleLogin}
                 className="group inline-flex items-center gap-2 px-7 py-3 bg-zinc-100 text-zinc-900 rounded-lg font-semibold text-sm hover:bg-white transition-all duration-200 cursor-pointer shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-px active:scale-[0.985]"
               >
                 Get Started Free
@@ -394,7 +247,7 @@ export default function LandingPage() {
           </motion.p>
           <motion.div variants={fadeInUp}>
             <button
-              onClick={() => setShowLogin(true)}
+              onClick={handleLogin}
               className="group inline-flex items-center gap-2 px-8 py-3.5 bg-zinc-100 text-zinc-900 rounded-lg font-semibold hover:bg-white transition-all duration-200 cursor-pointer shadow-[0_1px_0_rgba(255,255,255,0.2)_inset,0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-px active:scale-[0.985]"
             >
               Get Started — It&apos;s Free
