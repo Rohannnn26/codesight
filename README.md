@@ -45,22 +45,23 @@ CodeSight is an AI-powered pull request review platform built for GitHub reposit
 ## Project Structure
 
 ```text
-src/
-	app/                    # Next.js app routes and layouts
-	components/             # Shared UI and layout components
-	generated/prisma/       # Generated Prisma client output
-	lib/                    # Core auth/db/shared utilities
-	modules/
-		auth/                 # Auth-specific components, utils, actions
-		github/               # GitHub API integration logic
-prisma/
-	schema.prisma           # Database schema
-	migrations/             # Prisma migrations
+frontend/
+	src/
+		app/                  # Next.js app routes and layouts
+		components/           # Shared UI and layout components
+		generated/prisma/     # Generated Prisma client output
+		lib/                  # Core auth/db/shared utilities
+		modules/
+			auth/               # Auth-specific components, utils, actions
+			github/             # GitHub API integration logic
+	prisma/
+		schema.prisma         # Database schema
+		migrations/           # Prisma migrations
 ```
 
 ## Environment Variables
 
-Create a `.env` file in the project root with values like:
+Create a `.env` file in `frontend/` with values like:
 
 ```env
 # Database
@@ -82,19 +83,25 @@ GITHUB_TOKEN=""
 
 ## Local Development
 
-1. Install dependencies:
+1. Move into the frontend app:
+
+```bash
+cd frontend
+```
+
+2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Push Prisma schema to your database:
+3. Push Prisma schema to your database:
 
 ```bash
 npx prisma db push
 ```
 
-3. Start development server:
+4. Start development server:
 
 ```bash
 npm run dev
