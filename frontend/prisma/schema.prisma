@@ -91,6 +91,7 @@ model Repository {
   url           String
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pullRequests  PullRequest[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -98,4 +99,58 @@ model Repository {
   @@index([userId])
   @@map("repository")
   
+}
+
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+model PullRequest {
+  id            String    @id @default(cuid())
+  githubId      BigInt    @unique
+  number        Int
+  state         PullRequestState
+  title         String
+  body          String
+  author        String
+  baseBranch    String
+  headBranch    String
+  headSha       String
+  url           String
+  repositoryId  String
+  repository    Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  reviews       review[]
+
+  @@index([repositoryId])
+  @@map("pull_request")
+}
+
+enum ReviewStatus {
+  pending
+  in_progress
+  completed
+  failed
+  skipped
+}
+model review {
+  id            String    @id @default(cuid())
+  githubprId     BigInt    @unique
+  status        ReviewStatus
+  summary       String
+  state         String
+  body          String  @db.Text
+  pullRequestId  String
+  pullRequest   PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([pullRequestId])
+  @@map("review")
 }

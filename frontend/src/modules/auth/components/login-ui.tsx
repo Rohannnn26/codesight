@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { GithubIcon } from "lucide-react";
+import { GithubIcon, ArrowLeftIcon } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
+import Link from "next/link";
 
 const LoginUI = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +50,13 @@ const LoginUI = () => {
       <div className="flex-1 flex flex-col justify-center items-center px-12 py-16">
         <div className="w-full max-w-sm">
           <div className="mb-12">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-zinc-200 transition-colors duration-200 mb-8 group"
+            >
+              <ArrowLeftIcon size={16} className="transition-transform duration-200 group-hover:-translate-x-1" />
+              Back to Home
+            </Link>
             <h2 className="text-3xl font-bold mb-2">Welcome Back</h2>
             <p className="text-zinc-400">Login using one of the following providers:</p>
           </div>
