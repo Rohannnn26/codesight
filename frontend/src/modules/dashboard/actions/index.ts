@@ -1,220 +1,195 @@
 "use server"
 
-import{
-    fetchUserContributions,
-    getGitHubToken
-}from "@/modules/github/lib/github";
+import { unstable_cache } from "next/cache"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import { Octokit } from "octokit"
+import prisma from "@/lib/db"
+import { fetchUserContributions, getGitHubToken } from "@/modules/github/lib/github"
 
-import {auth} from "@/lib/auth";
-import { headers } from "next/headers";
-import { Octokit } from "octokit";
+// ── Cached GitHub API calls ────────────────────────────────────────────────
+// These are expensive (100-400ms each). unstable_cache stores the result
+// on the Next.js server for `revalidate` seconds, so page refreshes and
+// re-mounts within the window skip the GitHub API entirely.
+//
+// NOTE: auth session checks are OUTSIDE the cache because they use headers().
+// We pass userId + token as arguments — unstable_cache auto-includes them
+// in the cache key, so each user gets their own isolated cache entry.
 
-export async function getContributionStats() {
-    try {
-        const session = await auth.api.getSession({
-            headers: await headers(),
-        });
-
-        if (!session?.user) {
-            throw new Error("Unauthorized");
+const _cachedGitHubStats = unstable_cache(
+    async (token: string, username: string) => {
+        const octokit = new Octokit({ auth: token })
+        const [calendar, prsResult] = await Promise.all([
+            fetchUserContributions(token, username),
+            octokit.rest.search.issuesAndPullRequests({
+                q: `is:pr author:${username}`,
+                per_page: 1,
+            }),
+        ])
+        return {
+            totalCommits: calendar?.totalContributions ?? 0,
+            totalPRs: prsResult.data.total_count,
         }
+    },
+    ["github-stats"],
+    { revalidate: 60 * 15 } // 15 minutes
+)
 
-        const token = await getGitHubToken();
-
-        // Get the actual GitHub username from the GitHub API
-        const octokit = new Octokit({ auth: token });
-
-        const { data: user } = await octokit.rest.users.getAuthenticated();
-        const username = user.login;
-
-        const calendar = await fetchUserContributions(token, username);
-
-        if (!calendar) {
-            return null;
-        }
-
+const _cachedContributions = unstable_cache(
+    async (token: string, username: string) => {
+        const calendar = await fetchUserContributions(token, username)
+        if (!calendar) return null
         const contributions = calendar.weeks.flatMap((week: any) =>
             week.contributionDays.map((day: any) => ({
                 date: day.date,
                 count: day.contributionCount,
-                level: Math.min(4, Math.floor(day.contributionCount / 3)), // Convert to 0-4 scale
+                level: Math.min(4, Math.floor(day.contributionCount / 3)),
             }))
         )
+        return { contributions, totalContributions: calendar.totalContributions }
+    },
+    ["github-contributions"],
+    { revalidate: 60 * 60 * 4 } // 4 hours — contribution graph is daily data
+)
+
+const _cachedMonthlyCommitsAndPRs = unstable_cache(
+    async (token: string, username: string) => {
+        const sixMonthsAgo = new Date()
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+        const octokit = new Octokit({ auth: token })
+        const [calendar, prsResult] = await Promise.all([
+            fetchUserContributions(token, username),
+            octokit.rest.search.issuesAndPullRequests({
+                q: `author:${username} type:pr created:>${sixMonthsAgo.toISOString().split("T")[0]}`,
+                per_page: 100,
+            }),
+        ])
 
         return {
-            contributions,
-            totalContributions:calendar.totalContributions
+            calendarWeeks: calendar?.weeks ?? [],
+            prItems: prsResult.data.items,
         }
+    },
+    ["github-monthly"],
+    { revalidate: 60 * 60 } // 1 hour
+)
 
+// ── Helper: get authenticated GitHub username ──────────────────────────────
+// Called outside the cache because it uses the token directly.
+// Cached separately to avoid calling it in every action independently.
+const _cachedGetUsername = unstable_cache(
+    async (token: string) => {
+        const octokit = new Octokit({ auth: token })
+        const { data: user } = await octokit.rest.users.getAuthenticated()
+        return {
+            username: user.login,
+            totalRepos: user.public_repos + (user.total_private_repos ?? 0),
+        }
+    },
+    ["github-user"],
+    { revalidate: 60 * 60 * 6 } // 6 hours — username/repo count rarely changes
+)
+
+// ── Server Actions ─────────────────────────────────────────────────────────
+
+export async function getContributionStats() {
+    try {
+        const session = await auth.api.getSession({ headers: await headers() })
+        if (!session?.user) throw new Error("Unauthorized")
+
+        const token = await getGitHubToken()
+        const { username } = await _cachedGetUsername(token)
+
+        return await _cachedContributions(token, username)
     } catch (error) {
-console.error("Error fetching contribution stats:", error);
-    return null;
+        console.error("Error fetching contribution stats:", error)
+        return null
     }
 }
 
-
 export async function getDashboardStats() {
     try {
-        const session = await auth.api.getSession({
-            headers:await headers()
-        });
-        if (!session?.user) {
-            throw new Error("Not authenticated");
-        }
+        const session = await auth.api.getSession({ headers: await headers() })
+        if (!session?.user) throw new Error("Not authenticated")
 
-        const token = await getGitHubToken();
-        const octokit = new Octokit({
-            auth: token,
-        });
+        const token = await getGitHubToken()
 
-        const {data: user} = await octokit.rest.users.getAuthenticated();
+        // username is needed before we can fetch stats — cached after first call
+        const { username, totalRepos } = await _cachedGetUsername(token)
 
-        const totalRepos = user.public_repos + (user.total_private_repos ?? 0);
+        // GitHub stats + DB review count run in parallel
+        const [{ totalCommits, totalPRs }, totalReviews] = await Promise.all([
+            _cachedGitHubStats(token, username),
+            prisma.review.count({
+                where: {
+                    status: "completed",
+                    pullRequest: { repository: { userId: session.user.id } },
+                },
+            }),
+        ])
 
-        const calendar = await fetchUserContributions(token, user.login);
-        const totalCommits= calendar?.totalContributions || 0;
-
-        const {data:prs} = await octokit.rest.search.issuesAndPullRequests({
-            q:`is:pr author:${user.login}`,
-            per_page:1
-        });
-
-        const totalPRs=prs.total_count;
-
-        //TODO: Fetch open PRs, merged PRs, etc.
-        //TODO: Cache results for a certain period to avoid hitting rate limits
-        //TODO:Count AI reviews using GitHub's code review API
-
-        const totalReviews=0; // Placeholder, replace with actual API call
-
-        return {
-            totalRepos,
-            totalCommits,
-            totalPRs,
-            totalReviews
-        };
+        return { totalRepos, totalCommits, totalPRs, totalReviews }
     } catch (error) {
-        console.error("Error fetching dashboard stats:", error);
-        return{
-            totalRepos:0,
-            totalCommits:0,
-            totalPRs:0,
-            totalReviews:0
-        }
+        console.error("Error fetching dashboard stats:", error)
+        return { totalRepos: 0, totalCommits: 0, totalPRs: 0, totalReviews: 0 }
     }
-    }
+}
 
 export async function getMonthlyActivity() {
     try {
-        const session = await auth.api.getSession({
-            headers: await headers(),
-        })
+        const session = await auth.api.getSession({ headers: await headers() })
+        if (!session?.user) throw new Error("Unauthorized")
 
-        if (!session?.user) {
-            throw new Error("Unauthorized");
-        }
-        const token = await getGitHubToken();
-        const octokit = new Octokit({ auth: token })
+        const token = await getGitHubToken()
+        const { username } = await _cachedGetUsername(token)
 
-        const { data: user } = await octokit.rest.users.getAuthenticated()
+        const sixMonthsAgo = new Date()
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
-        const calendar = await fetchUserContributions(token, user.login)
+        // Run GitHub API (cached) + DB query in parallel
+        const [{ calendarWeeks, prItems }, dbReviews] = await Promise.all([
+            _cachedMonthlyCommitsAndPRs(token, username),
+            // Real review data from DB
+            prisma.review.findMany({
+                where: {
+                    status: "completed",
+                    createdAt: { gte: sixMonthsAgo },
+                    pullRequest: { repository: { userId: session.user.id } },
+                },
+                select: { createdAt: true },
+            }),
+        ])
 
-        if (!calendar) {
-            return [];
-        }
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        const monthlyData: { [key: string]: { commits: number; prs: number; reviews: number } } = {}
 
-        const monthlyData: {
-            [key: string]: { commits: number; prs: number; reviews: number }
-        } = {}
-
-        const monthNames = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ];
-
-        // Initialize last 6 months
-        const now = new Date();
+        const now = new Date()
         for (let i = 5; i >= 0; i--) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const monthKey = monthNames[date.getMonth()];
-            monthlyData[monthKey] = { commits: 0, prs: 0, reviews: 0 };
+            const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+            monthlyData[monthNames[date.getMonth()]] = { commits: 0, prs: 0, reviews: 0 }
         }
 
-        calendar.weeks.forEach((week: any) => {
+        calendarWeeks.forEach((week: any) => {
             week.contributionDays.forEach((day: any) => {
-                const date = new Date(day.date);
-                const monthKey = monthNames[date.getMonth()];
-                if (monthlyData[monthKey]) {
-                    monthlyData[monthKey].commits += day.contributionCount;
-                }
+                const key = monthNames[new Date(day.date).getMonth()]
+                if (monthlyData[key]) monthlyData[key].commits += day.contributionCount
             })
         })
 
-        // Fetch reviews from database for last 6 months
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-
-        // TODO: REVIEWS'S REAL DATA
-        const generateSampleReviews = () => {
-            const sampleReviews = [];
-            const now = new Date();
-
-            // Generate random reviews over the past 6 months
-            for (let i = 0; i < 45; i++) {
-                const randomDaysAgo = Math.floor(Math.random() * 180); // Random day in last 6 months
-                const reviewDate = new Date(now);
-                reviewDate.setDate(reviewDate.getDate() - randomDaysAgo);
-
-                sampleReviews.push({
-                    createdAt: reviewDate,
-                });
-            }
-
-            return sampleReviews;
-        };
-
-        const reviews = generateSampleReviews()
-
-        reviews.forEach((review) => {
-            const monthKey = monthNames[review.createdAt.getMonth()];
-            if (monthlyData[monthKey]) {
-                monthlyData[monthKey].reviews += 1;
-            }
+        prItems.forEach((pr: any) => {
+            const key = monthNames[new Date(pr.created_at).getMonth()]
+            if (monthlyData[key]) monthlyData[key].prs += 1
         })
 
-        const { data: prs } = await octokit.rest.search.issuesAndPullRequests({
-            q: `author:${user.login} type:pr created:>${sixMonthsAgo.toISOString().split("T")[0]
-                }`,
-            per_page: 100,
-        });
+        dbReviews.forEach((review) => {
+            const key = monthNames[review.createdAt.getMonth()]
+            if (monthlyData[key]) monthlyData[key].reviews += 1
+        })
 
-        prs.items.forEach((pr: any) => {
-            const date = new Date(pr.created_at);
-            const monthKey = monthNames[date.getMonth()];
-            if (monthlyData[monthKey]) {
-                monthlyData[monthKey].prs += 1;
-            }
-        });
-
-        return Object.keys(monthlyData).map((name) => ({
-            name,
-            ...monthlyData[name]
-        }))
-
+        return Object.keys(monthlyData).map((name) => ({ name, ...monthlyData[name] }))
     } catch (error) {
-        console.error("Error fetching monthly activity:", error);
-        return [];
+        console.error("Error fetching monthly activity:", error)
+        return []
     }
 }
