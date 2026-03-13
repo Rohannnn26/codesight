@@ -1,37 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
+
 export async function POST(req: NextRequest) {
   try {
     const event = req.headers.get("x-github-event");
-    const payload = await req.json();
+    const signature = req.headers.get("x-hub-signature-256") || "";
+    const rawBody = await req.text();
 
-    console.log(`[GitHub Webhook] Event: ${event}`, {
-      repository: payload.repository?.full_name,
+    console.log(`[GitHub Webhook] Event: ${event}`);
+
+    // Forward the webhook to the Python backend
+    const backendResponse = await fetch(`${BACKEND_URL}/api/webhooks/github`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-github-event": event || "",
+        "x-hub-signature-256": signature,
+      },
+      body: rawBody,
     });
 
-    switch (event) {
-      case "push":
-        // TODO: trigger re-indexing for RAG on push
-        console.log(`[GitHub Webhook] Push to ${payload.repository?.full_name} on ${payload.ref}`);
-        break;
+    const result = await backendResponse.json();
 
-      case "pull_request":
-        console.log(
-          `[GitHub Webhook] PR #${payload.number} (${payload.action}) on ${payload.repository?.full_name}`
-        );
-        break;
+    console.log(`[GitHub Webhook] Backend response:`, result);
 
-      case "ping":
-        console.log(`[GitHub Webhook] Ping from ${payload.repository?.full_name}`);
-        break;
-
-      default:
-        console.log(`[GitHub Webhook] Unhandled event: ${event}`);
-    }
-
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json(result, { status: backendResponse.status });
   } catch (error) {
-    console.error("[GitHub Webhook] Error processing webhook:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("[GitHub Webhook] Error forwarding to backend:", error);
+
+    // Return 200 to GitHub so it doesn't retry, but log the error
+    return NextResponse.json(
+      { error: "Failed to forward to backend", received: true },
+      { status: 200 }
+    );
   }
 }
