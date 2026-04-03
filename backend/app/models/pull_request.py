@@ -34,8 +34,12 @@ class PullRequest(Base):
     repositoryId: Mapped[str] = mapped_column(
         String, ForeignKey("repository.id", ondelete="CASCADE")
     )
-    createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updatedAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    createdAt: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), server_default=func.now()
+    )
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), server_default=func.now(), onupdate=func.now()
+    )
 
     repository = relationship("Repository", back_populates="pullRequests")
     reviews = relationship("Review", back_populates="pullRequest")
