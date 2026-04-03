@@ -20,10 +20,10 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import {
-  GitCommit,
-  GitPullRequest,
-  MessageSquare,
-  GitBranch,
+  FolderGit2,
+  Bot,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -34,21 +34,60 @@ import ContributionGraph from "@/modules/dashboard/components/contribution-graph
 
 function StatCardSkeleton() {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-4 rounded" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-8 w-20 mb-1" />
-        <Skeleton className="h-3 w-28" />
+    <Card className="bg-gradient-to-br from-card to-muted/20 border border-border/50">
+      <CardContent className="p-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-10 w-10 rounded-lg" />
+          <div className="flex-1">
+            <Skeleton className="h-3 w-20 mb-2" />
+            <Skeleton className="h-8 w-16" />
+          </div>
+        </div>
+        <Skeleton className="h-3 w-24 mt-3" />
       </CardContent>
     </Card>
   )
 }
 
-const statCardClass =
-  "transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary/20 cursor-default"
+interface StatCardProps {
+  icon: React.ReactNode
+  iconBg: string
+  label: string
+  value: string | number
+  context: string
+  contextColor?: string
+  delay: number
+}
+
+function StatCard({ icon, iconBg, label, value, context, contextColor = "text-muted-foreground", delay }: StatCardProps) {
+  return (
+    <Card
+      className="bg-gradient-to-br from-card to-muted/20 border border-border/50 rounded-xl shadow-sm
+                 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-primary/20
+                 animate-in fade-in slide-in-from-bottom-4 duration-500"
+      style={{ animationDelay: `${delay}ms`, animationFillMode: "both" }}
+    >
+      <CardContent className="p-6">
+        <div className="flex items-center gap-4">
+          <div className={`w-10 h-10 rounded-lg ${iconBg} flex items-center justify-center`}>
+            {icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              {label}
+            </p>
+            <p className="text-3xl font-bold tracking-tight mt-1">
+              {typeof value === 'number' ? value.toLocaleString() : value}
+            </p>
+          </div>
+        </div>
+        <p className={`text-xs mt-3 ${contextColor}`}>
+          {context}
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
 
 const MainPage = () => {
   const { data: stats, isLoading } = useQuery({
@@ -64,16 +103,17 @@ const MainPage = () => {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Header */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your coding activity and AI reviews
+        <p className="text-muted-foreground mt-1">
+          Overview of your connected repositories and AI reviews
         </p>
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-4 md:grid-cols-4 animate-in fade-in slide-in-from-bottom-3 duration-500 delay-75">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {isLoading ? (
           <>
             <StatCardSkeleton />
@@ -83,59 +123,53 @@ const MainPage = () => {
           </>
         ) : (
           <>
-            <Card className={statCardClass}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Repositories</CardTitle>
-                <GitBranch className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalRepos || 0}</div>
-                <p className="text-xs text-muted-foreground">Connected repositories</p>
-              </CardContent>
-            </Card>
-
-            <Card className={statCardClass}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Commits</CardTitle>
-                <GitCommit className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{(stats?.totalCommits || 0).toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">In the last year</p>
-              </CardContent>
-            </Card>
-
-            <Card className={statCardClass}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pull Requests</CardTitle>
-                <GitPullRequest className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalPRs || 0}</div>
-                <p className="text-xs text-muted-foreground">All time</p>
-              </CardContent>
-            </Card>
-
-            <Card className={statCardClass}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">AI Reviews</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats?.totalReviews || 0}</div>
-                <p className="text-xs text-muted-foreground">Generated reviews</p>
-              </CardContent>
-            </Card>
+            <StatCard
+              icon={<FolderGit2 className="h-5 w-5 text-violet-500" />}
+              iconBg="bg-violet-500/10"
+              label="Connected Repos"
+              value={stats?.connectedRepos || 0}
+              context="Repositories with active webhooks"
+              delay={0}
+            />
+            <StatCard
+              icon={<Bot className="h-5 w-5 text-emerald-500" />}
+              iconBg="bg-emerald-500/10"
+              label="AI Reviews"
+              value={stats?.completedReviews || 0}
+              context={`${stats?.pendingReviews || 0} pending, ${stats?.failedReviews || 0} failed`}
+              contextColor={stats?.pendingReviews ? "text-amber-500" : "text-muted-foreground"}
+              delay={75}
+            />
+            <StatCard
+              icon={<AlertCircle className="h-5 w-5 text-orange-500" />}
+              iconBg="bg-orange-500/10"
+              label="Issues Found"
+              value={stats?.issuesFound || 0}
+              context="Detected across all reviews"
+              delay={150}
+            />
+            <StatCard
+              icon={<CheckCircle2 className="h-5 w-5 text-blue-500" />}
+              iconBg="bg-blue-500/10"
+              label="Success Rate"
+              value={`${stats?.successRate || 0}%`}
+              context={`${stats?.completedReviews || 0} of ${stats?.totalReviews || 0} completed`}
+              delay={225}
+            />
           </>
         )}
       </div>
 
-      {/* Contribution Activity — above monthly chart */}
-      <Card className="transition-all hover:border-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both delay-100">
+      {/* Contribution Activity */}
+      <Card
+        className="border border-border/50 rounded-xl shadow-sm transition-all duration-200 hover:border-primary/20
+                   animate-in fade-in slide-in-from-bottom-4 duration-500"
+        style={{ animationDelay: "100ms", animationFillMode: "both" }}
+      >
         <CardHeader>
           <CardTitle>Contribution Activity</CardTitle>
           <CardDescription>
-            Visualizing your coding frequency over the last year
+            Your coding frequency over the last year
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -144,11 +178,15 @@ const MainPage = () => {
       </Card>
 
       {/* Monthly Activity */}
-      <Card className="transition-all hover:border-primary/20 animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both delay-150">
+      <Card
+        className="border border-border/50 rounded-xl shadow-sm transition-all duration-200 hover:border-primary/20
+                   animate-in fade-in slide-in-from-bottom-4 duration-500"
+        style={{ animationDelay: "150ms", animationFillMode: "both" }}
+      >
         <CardHeader>
           <CardTitle>Monthly Activity</CardTitle>
           <CardDescription>
-            Commits, PRs, and reviews over the last 6 months
+            Commits, PRs, and AI reviews over the last 6 months
           </CardDescription>
         </CardHeader>
         <CardContent>
