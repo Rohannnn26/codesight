@@ -21,7 +21,7 @@ class Review(Base):
     __tablename__ = "review"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
-    githubprId: Mapped[int] = mapped_column(BigInteger, unique=True)
+    githubprId: Mapped[int] = mapped_column(BigInteger)  # GitHub PR ID, not unique per review
     status: Mapped[ReviewStatus] = mapped_column(
         Enum(ReviewStatus, name="ReviewStatus", create_type=False)
     )
@@ -31,7 +31,11 @@ class Review(Base):
     pullRequestId: Mapped[str] = mapped_column(
         String, ForeignKey("pull_request.id", ondelete="CASCADE")
     )
-    createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updatedAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    createdAt: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), server_default=func.now()
+    )
+    updatedAt: Mapped[datetime] = mapped_column(
+        DateTime, default=func.now(), server_default=func.now(), onupdate=func.now()
+    )
 
     pullRequest = relationship("PullRequest", back_populates="reviews")

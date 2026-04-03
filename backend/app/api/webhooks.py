@@ -10,6 +10,7 @@ from app.models.repository import Repository
 from app.models.review import Review, ReviewStatus
 from app.schemas.webhook import PullRequestEvent
 from app.tasks.review_task import trigger_review
+from app.utils.id_gen import generate_cuid
 from app.utils.webhook_verify import verify_webhook_signature
 
 logger = structlog.get_logger()
@@ -32,7 +33,7 @@ async def github_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
     payload = await request.json()
 
-    logger.info("webhook_received", event=event_type, repo=payload.get("repository", {}).get("full_name"))
+    logger.info("webhook_received", event_type=event_type, repo=payload.get("repository", {}).get("full_name"))
 
     if event_type == "ping":
         return {"message": "pong"}
@@ -92,7 +93,6 @@ async def _handle_pull_request_event(payload: dict, db: AsyncSession):
         pr.headBranch = pr_data.head.get("ref", "")
         pr.baseBranch = pr_data.base.get("ref", "")
     else:
-        from app.utils.id_gen import generate_cuid
         pr = PullRequest(
             id=generate_cuid(),
             githubId=pr_data.id,
