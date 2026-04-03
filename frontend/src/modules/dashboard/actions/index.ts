@@ -113,26 +113,64 @@ export async function getDashboardStats() {
         const session = await auth.api.getSession({ headers: await headers() })
         if (!session?.user) throw new Error("Not authenticated")
 
-        const token = await getGitHubToken()
-
-        // username is needed before we can fetch stats — cached after first call
-        const { username, totalRepos } = await _cachedGetUsername(token)
-
-        // GitHub stats + DB review count run in parallel
-        const [{ totalCommits, totalPRs }, totalReviews] = await Promise.all([
-            _cachedGitHubStats(token, username),
+        // Fetch all stats from DB in parallel (CodeSight-focused metrics)
+        const [connectedRepos, totalReviews, completedReviews, pendingReviews, failedReviews] = await Promise.all([
+            prisma.repository.count({
+                where: { userId: session.user.id },
+            }),
+            prisma.review.count({
+                where: {
+                    pullRequest: { repository: { userId: session.user.id } },
+                },
+            }),
             prisma.review.count({
                 where: {
                     status: "completed",
                     pullRequest: { repository: { userId: session.user.id } },
                 },
             }),
+            prisma.review.count({
+                where: {
+                    status: { in: ["pending", "in_progress"] },
+                    pullRequest: { repository: { userId: session.user.id } },
+                },
+            }),
+            prisma.review.count({
+                where: {
+                    status: "failed",
+                    pullRequest: { repository: { userId: session.user.id } },
+                },
+            }),
         ])
 
-        return { totalRepos, totalCommits, totalPRs, totalReviews }
+        // Calculate success rate
+        const successRate = totalReviews > 0
+            ? Math.round((completedReviews / totalReviews) * 100)
+            : 0
+
+        // Issues found is a placeholder for now (future: aggregate from review data)
+        const issuesFound = 0
+
+        return {
+            connectedRepos,
+            totalReviews,
+            completedReviews,
+            pendingReviews,
+            failedReviews,
+            issuesFound,
+            successRate
+        }
     } catch (error) {
         console.error("Error fetching dashboard stats:", error)
-        return { totalRepos: 0, totalCommits: 0, totalPRs: 0, totalReviews: 0 }
+        return {
+            connectedRepos: 0,
+            totalReviews: 0,
+            completedReviews: 0,
+            pendingReviews: 0,
+            failedReviews: 0,
+            issuesFound: 0,
+            successRate: 0
+        }
     }
 }
 
